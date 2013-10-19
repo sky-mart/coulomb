@@ -13,17 +13,24 @@
 
 #include <iostream>
 
+using namespace std;
+
 class Particle
 {
 public:
-    Particle(double mass, double charge, Vect3 radius_vector, Vect3 velocity_vector);
+    Particle(string name, double mass, double charge, Vect3 radius_vector, Vect3 velocity_vector);
+    Particle(string xyz_line);
+    Particle();
+    
+    static const double uam;
     
     Vect3 r;  //radius-vector
     Vect3 v;  //velocity vector
     double m; //mass
     double q; //charge
+    string name;
 };
 
-std::ostream& operator << (std::ostream& out, const Particle& p);
+ostream& operator << (ostream& out, const Particle& p);
 
 #endif /* defined(__Coulomb__Particle__) */

@@ -9,21 +9,15 @@
 #include <iostream>
 
 #include "Particle.h"
+#include "Container.h"
 
 using namespace std;
 
 int main(int argc, const char * argv[])
 {
 
-    Vect3 r(1, 1, 1);
-    Vect3 v(0, 0, 0);
-    
-    double m = 21;
-    double q = 3;
-    
-    Particle p(m, q, r, v);
-    cout << p;
-    
+    Container c("/Users/Vlad/Dev/Univer/Coulomb/methane.xyz");
+    cout << c;
     return 0;
 }
 
