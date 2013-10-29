@@ -21,10 +21,12 @@ class Container
 public:
     Container(string xyz_file);
     
-private:
-    double len; //side of the cube
+    static void generateUniformGrid(string xyz_file, double side, ParticleInfo part, double step);
     
-    string comment;
+private:
+    double side; //side of the cube in ångstroms
+    
+    string comment; //comment in xyz file
     int N;
     vector<Particle> particles;
     

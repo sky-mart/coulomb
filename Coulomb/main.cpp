@@ -15,8 +15,8 @@ using namespace std;
 
 int main(int argc, const char * argv[])
 {
-
-    Container c("/Users/Vlad/Dev/Univer/Coulomb/methane.xyz");
+    Container::generateUniformGrid("/users/vlad/uniformgrid.xyz", 50, ParticleInfo("C"), 3);
+    Container c("/users/vlad/uniformgrid.xyz");
     cout << c;
     return 0;
 }
