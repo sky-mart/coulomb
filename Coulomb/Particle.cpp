@@ -7,6 +7,7 @@
 //
 
 #include "Particle.h"
+#include <cmath>
 
 const double Particle::uam = 1.66e-27;
 
@@ -24,32 +25,32 @@ Particle::Particle(string name, double mass, double charge, Vect3 radius_vector,
     v = velocity_vector;
 }
 
-Vect3 Particle::getR()
+Vect3 Particle::getR() const
 {
     return r;
 }
 
-Vect3 Particle::getV()
+Vect3 Particle::getV() const
 {
     return v;
 }
 
-ParticleInfo Particle::getInfo()
+ParticleInfo Particle::getInfo() const
 {
     return info;
 }
 
-string Particle::getName()
+string Particle::getName() const
 {
     return info.getName();
 }
 
-double Particle::getM()
+double Particle::getM() const
 {
     return info.getM();
 }
 
-double Particle::getQ()
+double Particle::getQ() const
 {
     return info.getQ();
 }
@@ -111,4 +112,20 @@ Particle::Particle(string xyz_line)
     r.z = stod(word);
     
     v = Vect3();
+}
+
+Vect3 Particle::coulombForce(const Particle& other) const
+{
+// F = k * q1 * q2 * (r2 - r1) / (r2 - r1).len() ^ 3
+    const double k = 1;
+    Vect3 F = r - other.r;
+    F /= pow(F.len(), 3);
+    F *= k * getQ() * other.getQ();
+    return F;
+}
+
+void Particle::move(const Vect3& newR, const Vect3& newV)
+{
+    r = newR;
+    v = newV;
 }

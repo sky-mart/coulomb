@@ -33,6 +33,13 @@ public:
     
     double len() const;
     
+    double scalarProduct(const Vect3& other) const;
+    Vect3 vectorProduct(const Vect3& other) const;
+    double mixedProduct(const Vect3& other1, const Vect3& other2) const;
+    
+    Vect3 projection(const Vect3& other) const;
+    double projectionCoeff(const Vect3& other) const;
+    
     double x;
     double y;
     double z;

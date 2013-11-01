@@ -45,17 +45,17 @@ ParticleInfo::ParticleInfo(string name)
     }
 }
 
-double ParticleInfo::getM()
+double ParticleInfo::getM() const
 {
     return m;
 }
 
-double ParticleInfo::getQ()
+double ParticleInfo::getQ() const
 {
     return q;
 }
 
-string ParticleInfo::getName()
+string ParticleInfo::getName() const
 {
     return name;
 }

@@ -23,19 +23,22 @@ public:
     Particle(ParticleInfo info, Vect3 radius_vector, Vect3 velocity_vector);
     Particle(string xyz_line);
     Particle();
-    
-    static const double uam;
 
-    Vect3 getR();
-    Vect3 getV();
-    ParticleInfo getInfo();
-    string getName();
-    double getM();
-    double getQ();
+    Vect3 coulombForce(const Particle& other) const;
+    void move(const Vect3& newR, const Vect3& newV);
+    
+    Vect3 getR() const;
+    Vect3 getV() const;
+    ParticleInfo getInfo() const;
+    string getName() const;
+    double getM() const;
+    double getQ() const;
     
     void setR(Vect3 r);
     void setV(Vect3 v);
     void setInfo(ParticleInfo info);
+    
+    static const double uam;
     
 private:
     Vect3 r;  //radius-vector

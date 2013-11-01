@@ -120,3 +120,34 @@ std::ostream& operator << (std::ostream& out, const Vect3& v)
     out << "(" << v.x << ", " << v.y << ", " << v.z << ")";
     return out;
 }
+
+double Vect3::scalarProduct(const Vect3& other) const
+{
+    return x * other.x + y * other.y + z * other.z;
+}
+
+Vect3 Vect3::vectorProduct(const Vect3& other) const
+{
+    Vect3 res;
+    res.x = y * other.z - z * other.y;
+    res.y = - (x * other.z - z * other.x);
+    res.z = z * other.y - y * other.x;
+    return res;
+}
+
+double Vect3::mixedProduct(const Vect3& other1, const Vect3& other2) const
+{
+    Vect3 n = other1.vectorProduct(other2);
+    return scalarProduct(n);
+}
+
+Vect3 Vect3::projection(const Vect3& other) const
+{
+    return other * projectionCoeff(other);
+}
+
+double Vect3::projectionCoeff(const Vect3& other) const
+{
+    double scProd = scalarProduct(other);
+    return scProd / pow(other.len(), 2);
+}

@@ -25,9 +25,9 @@ public:
     ParticleInfo(string name);
     ParticleInfo(string name, double mass, double charge);
     
-    double getM();
-    double getQ();
-    string getName();
+    double getM() const;
+    double getQ() const;
+    string getName() const;
     
     void setM(double mass);
     void setQ(double charge);
