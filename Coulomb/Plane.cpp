@@ -46,7 +46,7 @@ bool Plane::hasPoint(const Vect3& r) const
     return (r - r0).mixedProduct(a, b) == 0;
 }
 
-bool Plane::squareHasPoint(const Vect3& r)
+bool Plane::squareHasPoint(const Vect3& r) const
 {
     double rProjACoeff = r.projectionCoeff(a);
     double rProjBCoeff = r.projectionCoeff(b);

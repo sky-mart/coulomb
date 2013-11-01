@@ -24,14 +24,16 @@ public:
     
     static void generateUniformGrid(string xyz_file, double side, ParticleInfo part, double step);
     
-    void model(double time);
-    void useBoundaryCondition(Particle& p, const Vect3& newR, const Vect3& newV,
-                              const Plane& edge, const Vect3& intersectPoint);
+    void model(double femtoseconds);
     
     double getTimeStep();
     void setTimeStep(double newStep);
     
 private:
+    
+    pair<Plane, Vect3>* intersectsEdges(const Particle& p, const Vect3& newR, const Vect3& newV);
+    void reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3& velocity);
+    
     void fillEdges();
     void oneStep();
     

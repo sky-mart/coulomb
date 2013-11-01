@@ -121,27 +121,44 @@ void Container::oneStep()
     
     for (int i = 0; i < N; i++)
     {
-        bool boundary = false;
         Vect3 newV = particles[i].getV() + forces[i] * timeStep / particles[i].getM();
         Vect3 newR = particles[i].getR() + newV * timeStep;
         
-        for (int j = 0; j < edges.size(); j++)
+        pair<Plane, Vect3>* intersectPair = NULL;
+        while ((intersectPair = intersectsEdges(particles[i], newR, newV)) != NULL)
         {
-            Vect3* intersectPoint = edges[j].intersects(particles[i].getR(), newR);
-            if (intersectPoint)
-            {
-                useBoundaryCondition(particles[i], newR, newV, edges[i], *intersectPoint);
-                boundary = true;
-                break;
-            }
+            particles[i].move(intersectPair->second, newV);
+            reflect(intersectPair->first, intersectPair->second, newR, newV);
         }
         
-        if (!boundary)
-        {
-            particles[i].move(newR, newV);
-        }
+        particles[i].move(newR, newV);
             
     }
+}
+
+pair<Plane, Vect3>* Container::intersectsEdges(const Particle& p, const Vect3& newR, const Vect3& newV)
+{
+    for (int j = 0; j < edges.size(); j++)
+    {
+        Vect3* intersectPoint = edges[j].intersects(p.getR(), newR);
+        if (intersectPoint)
+            return new pair<Plane, Vect3>(edges[j], *intersectPoint);
+    }
+    return NULL;
+}
+
+void Container::reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3& velocity)
+{
+    Vect3 segmentToReflect = from - to;
+    Vect3 normal = plane.normal();
+    Vect3 summand = segmentToReflect.projection(normal);
+    summand *= 2;
+    
+    to += summand;
+    
+    Vect3 vDirection = to - from;
+    vDirection /= vDirection.len();
+    velocity = vDirection * velocity.len();
 }
 
 double Container::getTimeStep()
@@ -152,17 +169,5 @@ double Container::getTimeStep()
 void Container::setTimeStep(double newStep)
 {
     timeStep = newStep;
-}
-
-void Container::useBoundaryCondition(Particle& p, const Vect3& newR, const Vect3& newV,
-                                     const Plane& edge, const Vect3& intersectPoint)
-{
-    Vect3 toReflect = intersectPoint - newR;
-    Vect3 normal = edge.normal();
-    Vect3 direction = toReflect.projection(normal);
-    direction *= 2;
-    
-    Vect3 reflected = newR + direction;
-    p.setR(reflected); //не все так просто, нужно еще раз проверить не пересекаем ли мы границу
 }
 
