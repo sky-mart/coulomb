@@ -30,6 +30,8 @@ public:
     void setTimeStep(double newStep);
     
 private:
+    static Vect3* pointProjection(const Vect3& point, const Plane& plane);
+    static Vect3 reflectForce(const Vect3& particleR, const Vect3& planeR);
     
     pair<Plane, Vect3>* intersectsEdges(const Particle& p, const Vect3& newR, const Vect3& newV);
     void reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3& velocity);

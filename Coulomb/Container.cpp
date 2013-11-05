@@ -117,19 +117,29 @@ void Container::oneStep()
     for (int i = 0; i < N; i++)
         for (int j = 0; j < N; j++)
             if (i != j)
+            {
                 forces[i] += particles[i].coulombForce(particles[j]);
+                for (int k = 0; k < edges.size(); k++)
+                {
+                    Vect3* proj = pointProjection(particles[i].getR(), edges[k]);
+                    double dist = (particles[i].getR() - (*proj)).len();
+                    if (dist < 10)
+                        forces[i] += reflectForce(particles[i].getR(), *proj);
+                    delete proj;
+                }
+            }
     
     for (int i = 0; i < N; i++)
     {
         Vect3 newV = particles[i].getV() + forces[i] * timeStep / particles[i].getM();
         Vect3 newR = particles[i].getR() + newV * timeStep;
         
-        pair<Plane, Vect3>* intersectPair = NULL;
+        /*pair<Plane, Vect3>* intersectPair = NULL;
         while ((intersectPair = intersectsEdges(particles[i], newR, newV)) != NULL)
         {
             particles[i].move(intersectPair->second, newV);
             reflect(intersectPair->first, intersectPair->second, newR, newV);
-        }
+        }*/
         
         particles[i].move(newR, newV);
             
@@ -159,6 +169,19 @@ void Container::reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3&
     Vect3 vDirection = to - from;
     vDirection /= vDirection.len();
     velocity = vDirection * velocity.len();
+}
+
+Vect3* Container::pointProjection(const Vect3& point, const Plane& plane)
+{
+    Vect3 norm = plane.normal();
+    return plane.intersects(point, norm);
+}
+
+Vect3 Container::reflectForce(const Vect3& particleR, const Vect3& planeR)
+{
+    const double sigma = 1;
+    Vect3 force = particleR - planeR;
+    return force * sigma / pow(force.len(), 7);
 }
 
 double Container::getTimeStep()

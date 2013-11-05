@@ -131,7 +131,7 @@ Vect3 Vect3::vectorProduct(const Vect3& other) const
     Vect3 res;
     res.x = y * other.z - z * other.y;
     res.y = - (x * other.z - z * other.x);
-    res.z = z * other.y - y * other.x;
+    res.z = x * other.y - y * other.x;
     return res;
 }
 
