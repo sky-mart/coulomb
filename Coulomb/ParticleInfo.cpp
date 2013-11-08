@@ -13,6 +13,9 @@ const string ParticleInfo::names[] = {"C", "H", "K+", "Cl-"};
 const double ParticleInfo::masses[] = {12, 1, 39.0983, 35.4257};
 const double ParticleInfo::charges[] = {0, 0, 1, -1};
 
+const double ParticleInfo::amu = 1.660538783e-27;   //kg
+const double ParticleInfo::e = 1.602176565e-19;     //coulomb
+
 ParticleInfo::ParticleInfo()
 {
     this->m = 0;
@@ -65,7 +68,7 @@ void ParticleInfo::setM(double m)
     this->m = m;
 }
 
-void ParticleInfo::setQ(double q)
+void ParticleInfo::setQ(uint q)
 {
     this->q = q;
 }

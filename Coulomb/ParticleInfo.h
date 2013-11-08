@@ -9,6 +9,8 @@
 #ifndef __Coulomb__ParticleInfo__
 #define __Coulomb__ParticleInfo__
 
+typedef unsigned int uint;
+
 #include <iostream>
 
 using namespace std;
@@ -21,6 +23,9 @@ public:
     static const double charges[];
     static const int knownNum;
     
+    static const double amu;    //atomic mass unit in kg
+    static const double e;      //electron's charge in coulombs
+    
     ParticleInfo();
     ParticleInfo(string name);
     ParticleInfo(string name, double mass, double charge);
@@ -30,12 +35,12 @@ public:
     string getName() const;
     
     void setM(double mass);
-    void setQ(double charge);
+    void setQ(uint charge);
     void setName(string name);
     
 private:
-    double m; //mass
-    double q; //charge
+    double m;   //mass in aems
+    uint q;     //charge in electron charges
     string name;
     
     friend ostream& operator << (ostream& out, const ParticleInfo& p);

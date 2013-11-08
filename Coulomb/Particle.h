@@ -32,7 +32,7 @@ public:
     ParticleInfo getInfo() const;
     string getName() const;
     double getM() const;
-    double getQ() const;
+    uint getQ() const;
     
     void setR(Vect3 r);
     void setV(Vect3 v);
@@ -41,6 +41,7 @@ public:
     static const double uam;
     
 private:
+    // length in ångstrems
     Vect3 r;  //radius-vector
     Vect3 v;  //velocity vector
     ParticleInfo info;

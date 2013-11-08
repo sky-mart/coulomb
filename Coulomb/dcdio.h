@@ -8,6 +8,9 @@
  *      Author: zhmurov
  */
 
+#include <cstdlib>
+#include <cstdio>
+
 extern FILE* dcd_open_write(FILE* dcd_file, char *dcd_filename);
 extern FILE* dcd_open_append(FILE* dcd_file, char *dcd_filename);
 extern FILE* dcd_open_read(FILE* dcd_file, char *dcd_filename);

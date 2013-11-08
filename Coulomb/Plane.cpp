@@ -22,18 +22,18 @@ Plane::Plane(Vect3 r0, Vect3 a, Vect3 b)
     this->b = b;
 }
 
-Vect3* Plane::intersects(const Vect3& r1, const Vect3& r2) const
+Vect3* Plane::segmentIntersectsSquare(const Vect3& from, const Vect3& to) const
 {
-    if (intersectsStraight(r2 - r1)) //straight doesn't intersect the plane
+    if (straightIntersectsPlane(to - from)) //straight doesn't intersect the plane
     {
-        if (hasPoint(r1)) //whole straight lies in the plane
-            return new Vect3(r1);
+        if (planeHasPoint(from)) //whole straight lies in the plane
+            return new Vect3(from);
         else //straight and plane go in parallel
             return NULL;
     }
     else //straight intersects the plane, how about segment and square?
     {
-        Vect3* intersectPoint = getIntersectPoint(r1, r2);
+        Vect3* intersectPoint = getIntersectPoint(from, to);
         if (squareHasPoint(*intersectPoint))
             return intersectPoint;
         else
@@ -41,7 +41,7 @@ Vect3* Plane::intersects(const Vect3& r1, const Vect3& r2) const
     }
 }
 
-bool Plane::hasPoint(const Vect3& r) const
+bool Plane::planeHasPoint(const Vect3& r) const
 {
     return (r - r0).mixedProduct(a, b) == 0;
 }
@@ -54,7 +54,7 @@ bool Plane::squareHasPoint(const Vect3& r) const
            (rProjBCoeff >= 0 && rProjBCoeff <= 1);
 }
 
-bool Plane::intersectsStraight(const Vect3& l) const
+bool Plane::straightIntersectsPlane(const Vect3& l) const
 {
     return l.mixedProduct(a, b) == 0;
 }

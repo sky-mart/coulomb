@@ -18,11 +18,15 @@ public:
     Plane();
     Plane(Vect3 r0, Vect3 a, Vect3 b);
     
-    Vect3* intersects(const Vect3& r1, const Vect3& r2) const;
-    bool hasPoint(const Vect3& r) const;
+    Vect3* segmentIntersectsSquare(const Vect3& from, const Vect3& to) const;
+    
+    bool planeHasPoint(const Vect3& r) const;
     bool squareHasPoint(const Vect3& r) const;
-    bool intersectsStraight(const Vect3& l) const;
-    Vect3* getIntersectPoint(const Vect3& r1, const Vect3& r2) const;
+    
+    bool straightIntersectsPlane(const Vect3& l) const;
+    Vect3* getIntersectPoint(const Vect3& from, const Vect3& to) const;
+    
+    
     Vect3 normal() const;
     
 private:

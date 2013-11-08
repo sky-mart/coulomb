@@ -50,7 +50,7 @@ double Particle::getM() const
     return info.getM();
 }
 
-double Particle::getQ() const
+uint Particle::getQ() const
 {
     return info.getQ();
 }
@@ -116,8 +116,9 @@ Particle::Particle(string xyz_line)
 
 Vect3 Particle::coulombForce(const Particle& other) const
 {
-// F = k * q1 * q2 * (r2 - r1) / (r2 - r1).len() ^ 3
-    const double k = 1;
+    // F = k * q1 * q2 * (r2 - r1) / (r2 - r1).len() ^ 3
+    // (amu * Å / fs^2) * Å^2 / e^2
+    const double k = 1.38935469e-41;
     Vect3 F = r - other.r;
     F /= pow(F.len(), 3);
     F *= k * getQ() * other.getQ();

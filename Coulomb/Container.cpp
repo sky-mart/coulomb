@@ -45,6 +45,19 @@ Container::Container(string xyz_file)
         cout << "Unable to open file\n";
 }
 
+void Container::initializeDCD(char* dcdFileName, double dcdStep)
+{
+    this->dcdFileName = dcdFileName;
+    this->dcdStep = dcdStep;
+    
+    dcd = dcd_open_write(dcd, dcdFileName);
+    int nFrames = nSteps / dcdStep - 1;
+    int nsavc = dcdStep / timeStep;
+
+    dcd_write_header(dcd, dcdFileName, N, nFrames, (int)dcdStep, nsavc, timeStep);
+    dcd_close(dcd);
+}
+
 void Container::fillEdges()
 {
     edges = vector<Plane>(6);
@@ -84,7 +97,7 @@ void Container::generateUniformGrid(string xyz_file, double side, ParticleInfo p
     string sNum = to_string(particlesNum);
     
     ofstream xyz;
-    xyz.open(xyz_file, std::ofstream::out);
+    xyz.open(xyz_file, ofstream::out);
     if (xyz.good())
     {
         xyz << sNum << endl;
@@ -105,10 +118,62 @@ void Container::generateUniformGrid(string xyz_file, double side, ParticleInfo p
         cout << "Unable to open file\n";
 }
 
-void Container::model(double time)
+void Container::model(double timeStep, double time)
 {
+    this->timeStep = timeStep;
+    nSteps = (int) time / timeStep;
+    dcdStep = 10;
+    //initializeDCD("/users/vlad/my.dcd", 10);
+    ofstream movie;
+    movie.open("/users/vlad/movie.xyz", ofstream::out);
+    if (movie.good())
+    {
+        printCurrentState(movie);
+    }
+    else
+        return;
+    
     for (double t = 0; t <= time; t += timeStep)
+    {
         oneStep();
+        cout << "Step #" << (int)t+1 << " finished\n";
+        if ((int)t % (int)dcdStep == 0 && t != 0)
+        {
+            //writeDCDFrame();
+            printCurrentState(movie);
+        }
+    }
+}
+
+void Container::printCurrentState(ofstream& out)
+{
+    out << N << endl << endl;
+    for (int i = 0; i < N; i++)
+    {
+        out << particles[i].getName() << ' '
+            << particles[i].getR().x << ' '
+            << particles[i].getR().y << ' '
+            << particles[i].getR().z << ' ' << endl;
+    }
+}
+
+void Container::writeDCDFrame()
+{
+    float* x = new float(N);
+    float* y = new float(N);
+    float* z = new float(N);
+    
+    for (int i = 0; i < N; i++)
+    {
+        Vect3 r = particles[i].getR();
+        x[i] = r.x;
+        y[i] = r.y;
+        z[i] = r.z;
+    }
+    
+    dcd = dcd_open_append(dcd, dcdFileName);
+    dcd_write_frame(dcd, N, x, y, z);
+    dcd_close(dcd);
 }
 
 void Container::oneStep()
@@ -123,7 +188,7 @@ void Container::oneStep()
                 {
                     Vect3* proj = pointProjection(particles[i].getR(), edges[k]);
                     double dist = (particles[i].getR() - (*proj)).len();
-                    if (dist < 10)
+                    if (dist < 5)
                         forces[i] += reflectForce(particles[i].getR(), *proj);
                     delete proj;
                 }
@@ -150,7 +215,7 @@ pair<Plane, Vect3>* Container::intersectsEdges(const Particle& p, const Vect3& n
 {
     for (int j = 0; j < edges.size(); j++)
     {
-        Vect3* intersectPoint = edges[j].intersects(p.getR(), newR);
+        Vect3* intersectPoint = edges[j].segmentIntersectsSquare(p.getR(), newR);
         if (intersectPoint)
             return new pair<Plane, Vect3>(edges[j], *intersectPoint);
     }
@@ -174,7 +239,10 @@ void Container::reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3&
 Vect3* Container::pointProjection(const Vect3& point, const Plane& plane)
 {
     Vect3 norm = plane.normal();
-    return plane.intersects(point, norm);
+    Vect3* proj = plane.getIntersectPoint(point, point + norm);
+    if (proj == NULL)
+        cout << "hui\n";
+    return proj;
 }
 
 Vect3 Container::reflectForce(const Vect3& particleR, const Vect3& planeR)
