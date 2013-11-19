@@ -11,7 +11,7 @@
 
 #include <iostream>
 #include <vector>
-#include <set>
+#include <list>
 #include "Particle.h"
 
 class Cell
@@ -36,6 +36,9 @@ class Cell
     
     bool root;
     
+    bool leaf;
+    list<Particle*>* particleList;
+    
 public:
     Cell(const Vect3& center, const double side);
     
@@ -56,19 +59,21 @@ public:
     Vect3 coulombForce(const Particle& p);
     
     // add a particle to this cell
-    void add(const Particle& p);
+    void add(Particle* p);
     
     // remove a particle from this cell
-    void remove(const Particle& p);
+    void remove(Particle* p);
     
     // method generates subcells if their size is bigger then critical
     void generateSubcells();
     
-    void hierarchy(const Particle& p, vector<Cell*>& hierarchy);
+    void hierarchy(Particle* p, vector<Cell*>& hierarchy);
     
     void interactingCells(const vector<Cell*>& hierarchy, vector<Cell*>& interacting);
     
     void printHierarchy();
+    
+    list<Particle*>* getParticles();
 };
 
 #endif /* defined(__Coulomb__Cell__) */

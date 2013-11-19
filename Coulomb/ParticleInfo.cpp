@@ -85,3 +85,8 @@ ostream& operator << (ostream& out, const ParticleInfo& p)
         << "charge: " << p.q << endl;
     return out;
 }
+
+bool ParticleInfo::operator == (const ParticleInfo& other)
+{
+    return name == other.name && m == other.m && q == other.q;
+}

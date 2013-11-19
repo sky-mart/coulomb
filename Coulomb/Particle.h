@@ -36,7 +36,10 @@ public:
     
     void setR(Vect3 r);
     void setV(Vect3 v);
+    void setV(const string& xyzLine);
     void setInfo(ParticleInfo info);
+    
+    bool operator == (const Particle& other);
     
     static const double uam;
     

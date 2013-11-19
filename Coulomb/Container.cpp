@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <cmath>
 
-const double Container::boundaryDistance = 5;
+const double Container::boundaryDistance = 10;
 
 Container::Container(string xyz_file)
 {
@@ -47,6 +47,76 @@ Container::Container(string xyz_file)
     }
     else
         cout << "Unable to open file\n";
+}
+
+Container::Container(string coordinateFile, string velocityFile)
+{
+    ifstream coordinate;
+    ifstream velocity;
+    
+    string line;
+    
+    coordinate.open(coordinateFile, std::ifstream::in);
+    
+    if (coordinate.good())
+    {
+        getline(coordinate, line);
+        N = stoi(line);
+        particles.resize(N);
+        
+        getline(coordinate, line);
+        comment = line;
+        unsigned long sideIndex = comment.find("side=") + 5;
+        side = stoi(comment.substr(sideIndex, comment.length() - sideIndex));
+        
+        int i = 0;
+        while (coordinate.good())
+        {
+            getline (coordinate, line);
+            if (!line.empty())
+            {
+                particles[i] = Particle(line);
+                i++;
+            }
+        }
+        coordinate.close();
+        
+        fillEdges();
+    }
+    else
+    {
+        cout << "Unable to open file\n";
+        exit(0);
+    }
+    
+    velocity.open(coordinateFile, std::ifstream::in);
+    
+    if (velocity.good())
+    {
+        getline(velocity, line);
+        getline(velocity, line);
+        
+        int i = 0;
+        while (velocity.good())
+        {
+            getline (velocity, line);
+            if (!line.empty())
+            {
+                particles[i].setV(line);
+                i++;
+            }
+        }
+        velocity.close();
+        
+        fillEdges();
+    }
+    else
+    {
+        cout << "Unable to open file\n";
+        exit(0);
+    }
+
+    
 }
 
 void Container::fillEdges()
@@ -109,7 +179,63 @@ void Container::generateUniformGrid(string xyz_file, double side, ParticleInfo p
         cout << "Unable to open file\n";
 }
 
-void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode outputMode)
+void Container::generateRandomGrid(string xyzFile, double side, ParticleInfo part, int nParticles)
+{
+    ofstream xyz;
+    xyz.open(xyzFile, ofstream::out);
+    if (xyz.good())
+    {
+        xyz << nParticles << endl;
+        xyz << "Random cube grid of " << part.getName() << ", side=" << side << endl;
+        srand((unsigned int)time(NULL));
+        
+        for (int i = 0; i < nParticles; i++)
+        {
+            double x = - side / 2 + boundaryDistance + ((double)rand() / RAND_MAX) * (side - 2 * boundaryDistance);
+            double y = - side / 2 + boundaryDistance + ((double)rand() / RAND_MAX) * (side - 2 * boundaryDistance);
+            double z = - side / 2 + boundaryDistance + ((double)rand() / RAND_MAX) * (side - 2 * boundaryDistance);
+            
+            xyz << part.getName() << ' '
+                << x << ' '
+                << y << ' '
+                << z << endl;
+        }
+        
+        xyz.close();
+    }
+    else
+        cout << "Unable to open file\n";
+}
+
+void Container::generateRandomVelocities(string xyzFile, double maxVelocity, ParticleInfo part, int nParticles)
+{
+    ofstream xyz;
+    xyz.open(xyzFile, ofstream::out);
+    if (xyz.good())
+    {
+        xyz << nParticles << endl;
+        xyz << "Random velocities of " << part.getName() << endl;
+        srand((unsigned int)time(NULL));
+        
+        for (int i = 0; i < nParticles; i++)
+        {
+            double x = ((double)rand() / RAND_MAX) * maxVelocity;
+            double y = ((double)rand() / RAND_MAX) * maxVelocity;
+            double z = ((double)rand() / RAND_MAX) * maxVelocity;
+            
+            xyz << part.getName() << ' '
+            << x << ' '
+            << y << ' '
+            << z << endl;
+        }
+        
+        xyz.close();
+    }
+    else
+        cout << "Unable to open file\n";
+}
+
+void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode outputMode, const string& outputFile)
 {
     this->calc = calc;
     this->outputMode = outputMode;
@@ -125,7 +251,7 @@ void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode
     
     if (outputMode == xyzFile)
     {
-        movie.open("/users/vlad/movie.xyz", ofstream::out);
+        movie.open(outputFile, ofstream::out);
         movie << setprecision(10);
         
         if (movie.good())
@@ -166,12 +292,23 @@ void Container::oneStep()
                 Vect3 forceFromCell = interactingCells[i][j]->coulombForce(particles[i]);
                 forces[i] += forceFromCell;
             }
+            Cell* lastCell = hierarchy[i][hierarchy[i].size() - 1];
+            list<Particle*>* interactingParticles = lastCell->getParticles();
+            
+            for (list<Particle*>::iterator j = interactingParticles->begin();
+                 j != interactingParticles->end(); j++)
+                if (!(**j == particles[i]))
+                    forces[i] += particles[i].coulombForce(**j);
+            
         }
         else if (calc == N2)
         {
-            for (int j = 0; j < N; j++)
-                if (i != j)
-                    forces[i] += particles[i].coulombForce(particles[j]);
+            for (int j = i + 1; j < N; j++)
+            {
+                Vect3 force = particles[i].coulombForce(particles[j]);
+                forces[i] += force;
+                forces[j] -= force;
+            }
         }
         
         //boundary condition
@@ -202,15 +339,17 @@ void Container::oneStep()
         if (calc == yavorsky)
         {
             for (int j = 0; j < hierarchy[i].size(); j++)
-                hierarchy[i][j]->remove(particles[i]);
+                hierarchy[i][j]->remove(&particles[i]);
             hierarchy[i].resize(0);
+        
+            particles[i].move(newR, newV);
+            cell->hierarchy(&particles[i], hierarchy[i]);
+        
+            interactingCells[i].resize(0);
+            cell->interactingCells(hierarchy[i], interactingCells[i]);
         }
-        
-        particles[i].move(newR, newV);
-        cell->hierarchy(particles[i], hierarchy[i]);
-        
-        interactingCells[i].resize(0);
-        cell->interactingCells(hierarchy[i], interactingCells[i]);
+        else
+            particles[i].move(newR, newV);
     }
 }
 
@@ -226,13 +365,8 @@ void Container::defineParticlesSets()
 {
     for (int i = 0; i < N; i++)
     {
-        //cout << "Particle #" << i + 1 << endl  << particles[i] << endl;
-        cell->hierarchy(particles[i], hierarchy[i]);
-        //printHierarchy(i);
-        //cout << endl;
+        cell->hierarchy(&particles[i], hierarchy[i]);
         cell->interactingCells(hierarchy[i], interactingCells[i]);
-        //printInteracting(i);
-        //cout << endl;
     }
 }
 
@@ -259,10 +393,10 @@ void Container::printInteracting(int i)
 void Container::recalcCells(int i)
 {
     for (int j = 0; j < hierarchy[i].size(); j++)
-        hierarchy[i][j]->remove(particles[i]);
+        hierarchy[i][j]->remove(&particles[i]);
     hierarchy[i].resize(0);
     
-    cell->hierarchy(particles[i], hierarchy[i]);
+    cell->hierarchy(&particles[i], hierarchy[i]);
     printHierarchy(i);
     
     interactingCells[i].resize(0);

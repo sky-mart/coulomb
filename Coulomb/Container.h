@@ -39,6 +39,8 @@ public:
     // the 2nd should contain length of cube's side
     Container(string xyzFile);
     
+    Container(string coordinateFile, string velocityFile);
+    
     
     // This method generates uniform grid which has
     // particles in every node. All particles are situated
@@ -47,10 +49,16 @@ public:
     static void generateUniformGrid(string xyzFile, double side, ParticleInfo part, double step);
     
     
+    // Generates random cube grid with @nParticles particles
+    static void generateRandomGrid(string xyzFile, double side, ParticleInfo part, int nParticles);
+    
+    static void generateRandomVelocities(string xyzFile, double maxVelocity, ParticleInfo part, int nParticles);
+    
+    
     // Basic method to model participles movement
     // during @femtoseconds femtoseconds with the
     // time step equal to @timeStep
-    void model(double timeStep, double time, CoulombCalc calc, OutputMode outputMode);
+    void model(double timeStep, double time, CoulombCalc calc, OutputMode outputMode, const string& outputFile);
     
     
     // Getter/setter of timeStep parameter

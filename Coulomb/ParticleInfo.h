@@ -38,6 +38,8 @@ public:
     void setQ(uint charge);
     void setName(string name);
     
+    bool operator == (const ParticleInfo& other);
+    
 private:
     double m;   //mass in aems
     uint q;     //charge in electron charges

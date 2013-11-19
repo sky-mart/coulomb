@@ -24,6 +24,10 @@ Cell::Cell(const Vect3& center, const double side)
     
     for (int i = 0; i < 8; i++)
         signs[i] = Vect3(xs[i], ys[i], zs[i]);
+    
+    root = false;
+    leaf = false;
+    particleList = NULL;
 }
 
 void Cell::setRoot(bool root)
@@ -43,19 +47,22 @@ bool Cell::operator == (const Cell& other)
 
 Vect3 Cell::coulombForce(const Particle& p)
 {
-    Particle tmp("", 0, avgQ, avgR, Vect3());
+    Particle tmp("", 0, N * avgQ, avgR, Vect3());
     return p.coulombForce(tmp);
 }
 
-void Cell::add(const Particle& p)
+void Cell::add(Particle* p)
 {
-    double newQ = (avgQ * N + p.getQ()) / (N + 1);
-    avgR = (avgR * avgQ * N + p.getR() * p.getQ()) / newQ / ( N + 1);
+    double newQ = (avgQ * N + p->getQ()) / (N + 1);
+    avgR = (avgR * avgQ * N + p->getR() * p->getQ()) / newQ / ( N + 1);
     avgQ = newQ;
     N++;
+    
+    if (leaf)
+        particleList->push_back(p);
 }
 
-void Cell::remove(const Particle& p)
+void Cell::remove(Particle* p)
 {
     if (N == 1)
     {
@@ -63,17 +70,29 @@ void Cell::remove(const Particle& p)
         avgR = Vect3();
     }
     else{
-        double newQ = (avgQ * N - p.getQ()) / (N - 1);
-        avgR = (avgR * avgQ * N - p.getR() * p.getQ()) / newQ / ( N - 1);
+        double newQ = (avgQ * N - p->getQ()) / (N - 1);
+        avgR = (avgR * avgQ * N - p->getR() * p->getQ()) / newQ / ( N - 1);
         avgQ = newQ;
     }
     N--;
+    
+    if (leaf)
+        for (list<Particle*>::iterator i = particleList->begin(); i != particleList->end(); i++)
+            if (**i == *p)
+            {
+                particleList->erase(i);
+                break;
+            }
 }
 
 void Cell::generateSubcells()
 {
     if (side / 2 < criticalSize)
+    {
+        leaf = true;
+        particleList = new list<Particle*>;
         return;
+    }
     
     subcells = vector<Cell*>(8);
     for (int i = 0; i < 8; i++)
@@ -87,10 +106,10 @@ void Cell::generateSubcells()
     }
 }
 
-void Cell::hierarchy(const Particle& p, vector<Cell*>& hierarchy)
+void Cell::hierarchy(Particle* p, vector<Cell*>& hierarchy)
 {
 
-    Vect3 sign = p.getR() - center;
+    Vect3 sign = p->getR() - center;
     sign.x = (sign.x == 0) ? 1 : sign.x / abs(sign.x);
     sign.y = (sign.y == 0) ? 1 : sign.y / abs(sign.y);
     sign.z = (sign.z == 0) ? 1 : sign.z / abs(sign.z);
@@ -129,7 +148,7 @@ void Cell::interactingCells(const vector<Cell*>& hierarchy, vector<Cell*>& inter
 
 bool Cell::isLeaf()
 {
-    return subcells.empty();
+    return leaf;
 }
 
 void Cell::printHierarchy()
@@ -157,4 +176,9 @@ ostream& operator << (ostream& out, const Cell& c)
     out << " charge: " << c.avgQ ;
     out << " r: " << c.avgR;
     return out;
+}
+
+list<Particle*>* Cell::getParticles()
+{
+    return particleList;
 }
