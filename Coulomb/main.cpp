@@ -21,10 +21,10 @@ int main(int argc, const char * argv[])
     Container::generateUniformGrid("/users/vlad/uniformgrid.xyz", 50, ParticleInfo("K+"), 5);
     Container c("/users/vlad/uniformgrid.xyz");
     c.setTimeStep(1);
-    cout << c;
+    //cout << c;
     
-    c.model(1, 1000);
-    cout << c;
+    c.model(1, 10000, Container::yavorsky, Container::xyzFile);
+    //cout << c;
 
     
     return 0;

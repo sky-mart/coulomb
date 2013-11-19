@@ -9,7 +9,10 @@
 #include "Container.h"
 
 #include <fstream>
+#include <iomanip>
 #include <cmath>
+
+const double Container::boundaryDistance = 5;
 
 Container::Container(string xyz_file)
 {
@@ -25,6 +28,8 @@ Container::Container(string xyz_file)
         
         getline(xyz, line);
         comment = line;
+        unsigned long sideIndex = comment.find("side=") + 5;
+        side = stoi(comment.substr(sideIndex, comment.length() - sideIndex));
         
         int i = 0;
         while (xyz.good())
@@ -37,25 +42,11 @@ Container::Container(string xyz_file)
             }
         }
         xyz.close();
-        
-        side = 50;
+
         fillEdges();
     }
     else
         cout << "Unable to open file\n";
-}
-
-void Container::initializeDCD(char* dcdFileName, double dcdStep)
-{
-    this->dcdFileName = dcdFileName;
-    this->dcdStep = dcdStep;
-    
-    dcd = dcd_open_write(dcd, dcdFileName);
-    int nFrames = nSteps / dcdStep - 1;
-    int nsavc = dcdStep / timeStep;
-
-    dcd_write_header(dcd, dcdFileName, N, nFrames, (int)dcdStep, nsavc, timeStep);
-    dcd_close(dcd);
 }
 
 void Container::fillEdges()
@@ -101,7 +92,7 @@ void Container::generateUniformGrid(string xyz_file, double side, ParticleInfo p
     if (xyz.good())
     {
         xyz << sNum << endl;
-        xyz << "Uniform cube grid of " << part.getName() << endl;
+        xyz << "Uniform cube grid of " << part.getName() << ", side=" << side << endl;
         
         for (double x = -side/2 + step/2; x <= side/2 - step/2; x += step)
             for (double y = -side/2 + step/2; y <= side/2 - step/2; y += step)
@@ -118,96 +109,235 @@ void Container::generateUniformGrid(string xyz_file, double side, ParticleInfo p
         cout << "Unable to open file\n";
 }
 
-void Container::model(double timeStep, double time)
+void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode outputMode)
 {
+    this->calc = calc;
+    this->outputMode = outputMode;
     this->timeStep = timeStep;
-    nSteps = (int) time / timeStep;
-    dcdStep = 10;
-    //initializeDCD("/users/vlad/my.dcd", 10);
-    ofstream movie;
-    movie.open("/users/vlad/movie.xyz", ofstream::out);
-    if (movie.good())
+    
+    if (calc == yavorsky)
     {
-        printCurrentState(movie);
+        hierarchy = vector<vector<Cell*>>(N);
+        interactingCells = vector<vector<Cell*>>(N);
+        generateCells();
+        defineParticlesSets();
     }
-    else
-        return;
+    
+    if (outputMode == xyzFile)
+    {
+        movie.open("/users/vlad/movie.xyz", ofstream::out);
+        movie << setprecision(10);
+        
+        if (movie.good())
+            printCurrentState();
+        else
+            return;
+    }
+    else if (outputMode == dcdFile)
+    {
+    }
     
     for (double t = 0; t <= time; t += timeStep)
     {
         oneStep();
         cout << "Step #" << (int)t+1 << " finished\n";
-        if ((int)t % (int)dcdStep == 0 && t != 0)
+        if (shouldOutput(t))
         {
-            //writeDCDFrame();
-            printCurrentState(movie);
+            if (outputMode == dcdFile)
+                writeDCDFrame();
+            else
+                printCurrentState();
         }
     }
-}
-
-void Container::printCurrentState(ofstream& out)
-{
-    out << N << endl << endl;
-    for (int i = 0; i < N; i++)
-    {
-        out << particles[i].getName() << ' '
-            << particles[i].getR().x << ' '
-            << particles[i].getR().y << ' '
-            << particles[i].getR().z << ' ' << endl;
-    }
-}
-
-void Container::writeDCDFrame()
-{
-    float* x = new float(N);
-    float* y = new float(N);
-    float* z = new float(N);
-    
-    for (int i = 0; i < N; i++)
-    {
-        Vect3 r = particles[i].getR();
-        x[i] = r.x;
-        y[i] = r.y;
-        z[i] = r.z;
-    }
-    
-    dcd = dcd_open_append(dcd, dcdFileName);
-    dcd_write_frame(dcd, N, x, y, z);
-    dcd_close(dcd);
 }
 
 void Container::oneStep()
 {
     vector<Vect3> forces(N);
+    
+    //calculate force for each particle
+    //to use the second newton's law
     for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
-            if (i != j)
+    {
+        if (calc == yavorsky)
+        {
+            for (int j = 0; j < interactingCells[i].size(); j++)
             {
-                forces[i] += particles[i].coulombForce(particles[j]);
-                for (int k = 0; k < edges.size(); k++)
-                {
-                    Vect3* proj = pointProjection(particles[i].getR(), edges[k]);
-                    double dist = (particles[i].getR() - (*proj)).len();
-                    if (dist < 5)
-                        forces[i] += reflectForce(particles[i].getR(), *proj);
-                    delete proj;
-                }
+                Vect3 forceFromCell = interactingCells[i][j]->coulombForce(particles[i]);
+                forces[i] += forceFromCell;
             }
+        }
+        else if (calc == N2)
+        {
+            for (int j = 0; j < N; j++)
+                if (i != j)
+                    forces[i] += particles[i].coulombForce(particles[j]);
+        }
+        
+        //boundary condition
+        for (int k = 0; k < edges.size(); k++)
+        {
+            Vect3* proj = pointProjection(particles[i].getR(), edges[k]);
+            double dist = (particles[i].getR() - (*proj)).len();
+            if (dist < boundaryDistance)
+                forces[i] += reflectForce(particles[i].getR(), *proj);
+            delete proj;
+        }
+    }
     
     for (int i = 0; i < N; i++)
     {
         Vect3 newV = particles[i].getV() + forces[i] * timeStep / particles[i].getM();
         Vect3 newR = particles[i].getR() + newV * timeStep;
         
-        /*pair<Plane, Vect3>* intersectPair = NULL;
+        /* teleportation
+         
+        pair<Plane, Vect3>* intersectPair = NULL;
         while ((intersectPair = intersectsEdges(particles[i], newR, newV)) != NULL)
         {
             particles[i].move(intersectPair->second, newV);
             reflect(intersectPair->first, intersectPair->second, newR, newV);
-        }*/
+        }
+        */
+        if (calc == yavorsky)
+        {
+            for (int j = 0; j < hierarchy[i].size(); j++)
+                hierarchy[i][j]->remove(particles[i]);
+            hierarchy[i].resize(0);
+        }
         
         particles[i].move(newR, newV);
-            
+        cell->hierarchy(particles[i], hierarchy[i]);
+        
+        interactingCells[i].resize(0);
+        cell->interactingCells(hierarchy[i], interactingCells[i]);
+    }
+}
+
+void Container::generateCells()
+{
+    cell = new Cell(Vect3(0, 0, 0), side);
+    cell->setRoot(true);
+    cell->generateSubcells();
+    
+}
+
+void Container::defineParticlesSets()
+{
+    for (int i = 0; i < N; i++)
+    {
+        //cout << "Particle #" << i + 1 << endl  << particles[i] << endl;
+        cell->hierarchy(particles[i], hierarchy[i]);
+        //printHierarchy(i);
+        //cout << endl;
+        cell->interactingCells(hierarchy[i], interactingCells[i]);
+        //printInteracting(i);
+        //cout << endl;
+    }
+}
+
+void Container::printHierarchy(int i)
+{
+    cout << "Hierarchy:" << endl;
+    for (int j = 0; j < hierarchy[i].size(); j++)
+    {
+        for (int k = 0; k < j * 4; k++)
+            cout << ' ';
+        cout << *hierarchy[i][j] << endl;
+    }
+}
+
+void Container::printInteracting(int i)
+{
+    cout << "Interacting cells:" << endl;
+    for (int j = 0; j < interactingCells[i].size(); j++)
+    {
+        cout << *interactingCells[i][j] << endl;
+    }
+}
+
+void Container::recalcCells(int i)
+{
+    for (int j = 0; j < hierarchy[i].size(); j++)
+        hierarchy[i][j]->remove(particles[i]);
+    hierarchy[i].resize(0);
+    
+    cell->hierarchy(particles[i], hierarchy[i]);
+    printHierarchy(i);
+    
+    interactingCells[i].resize(0);
+    cell->interactingCells(hierarchy[i], interactingCells[i]);
+}
+
+
+Vect3* Container::pointProjection(const Vect3& point, const Plane& plane)
+{
+    Vect3 norm = plane.normal();
+    Vect3* proj = plane.getIntersectPoint(point, point + norm);
+    return proj;
+}
+
+Vect3 Container::reflectForce(const Vect3& particleR, const Vect3& planeR)
+{
+    const double sigma = 1;
+    Vect3 force = particleR - planeR;
+    return force * sigma / pow(force.len(), 7);
+}
+
+double Container::getTimeStep()
+{
+    return timeStep;
+}
+
+void Container::setTimeStep(double newStep)
+{
+    timeStep = newStep;
+}
+
+bool Container::shouldOutput(double timeFromStart)
+{
+    return (int)(timeFromStart / timeStep) % 1 == 0;
+}
+
+void Container::initializeDCD(char* dcdFileName, double dcdStep)
+{
+    /*
+     this->dcdFileName = dcdFileName;
+     void createDCD(DCD* dcd, int atomCount, int frameCount, int firstFrame, float timestep, int dcdFreq, int hazUC, int UCX, int UCY, int UCZ);
+     
+     createDCD(&dcd, N, nSteps /dcdStep, 1, timeStep, dcdStep, 0, 0, 0, 0);
+     dcdOpenWrite(&dcd, dcdFileName);
+     dcdWriteHeader(dcd);
+     dcdClose(dcd)
+     */
+}
+
+void Container::writeDCDFrame()
+{
+    /*
+     for (int i = 0; i < N; i++)
+     {
+     Vect3 r = particles[i].getR();
+     dcd.frame.X[i] = r.x;
+     dcd.frame.Y[i] = r.y;
+     dcd.frame.Z[i] = r.z;
+     }
+     
+     dcdOpenAppend(&dcd, dcdFileName);
+     dcdWriteFrame(dcd);
+     dcdClose(dcd);
+     */
+}
+
+void Container::printCurrentState()
+{
+    movie << N << endl << endl;
+    for (int i = 0; i < N; i++)
+    {
+        movie << particles[i].getName() << ' '
+        << particles[i].getR().x << ' '
+        << particles[i].getR().y << ' '
+        << particles[i].getR().z << ' ' << endl;
     }
 }
 
@@ -234,31 +364,5 @@ void Container::reflect(const Plane& plane, const Vect3& from, Vect3& to, Vect3&
     Vect3 vDirection = to - from;
     vDirection /= vDirection.len();
     velocity = vDirection * velocity.len();
-}
-
-Vect3* Container::pointProjection(const Vect3& point, const Plane& plane)
-{
-    Vect3 norm = plane.normal();
-    Vect3* proj = plane.getIntersectPoint(point, point + norm);
-    if (proj == NULL)
-        cout << "hui\n";
-    return proj;
-}
-
-Vect3 Container::reflectForce(const Vect3& particleR, const Vect3& planeR)
-{
-    const double sigma = 1;
-    Vect3 force = particleR - planeR;
-    return force * sigma / pow(force.len(), 7);
-}
-
-double Container::getTimeStep()
-{
-    return timeStep;
-}
-
-void Container::setTimeStep(double newStep)
-{
-    timeStep = newStep;
 }
 

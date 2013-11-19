@@ -1,43 +1,59 @@
-#include "dcdio.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
 /*
  *  dcdio.c
  *
- * Code to work with dcd files. On Oct 30, 2008 only writing is implemented.
+ * Code to work with dcd files.
  *
  *  Created on: Oct 29, 2008
  *      Author: zhmurov
  */
 
-FILE* dcd_open_write(FILE* dcd_file, char *dcd_filename);
-FILE* dcd_open_append(FILE* dcd_file, char *dcd_filename);
-FILE* dcd_open_read(FILE* dcd_file, char *dcd_filename);
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include "dcdio.h"
 
-void dcd_write_header(FILE* dcd_file, char *dcd_filename, int N, int NFILE, int NPRIV, int NSAVC, double DELTA);
-void dcd_write_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z);
+void createDCD(DCD* dcd, int atomCount, int frameCount, int firstFrame, float timestep, int dcdFreq, int hazUC, int UCX, int UCY, int UCZ){
+	dcd->header.N = atomCount;
+	dcd->header.delta = timestep;
+	dcd->header.nfile = frameCount;
+	dcd->header.npriv = firstFrame;
+	dcd->header.nsavc = dcdFreq;
+	dcd->header.nstep = frameCount*dcdFreq;
+	sprintf(dcd->header.remark1, "REMARKS CREATED BY dcdio.c");
+	time_t rawtime;
+	struct tm * timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	sprintf(dcd->header.remark2, "REMARKS DATE: %s", asctime(timeinfo));
+	dcd->hasUC = hazUC;
+	dcd->uc.a = UCX;
+	dcd->uc.b = UCY;
+	dcd->uc.c = UCZ;
+	dcd->uc.alpha = 0;
+	dcd->uc.beta = 0;
+	dcd->uc.gamma = 0;
+	dcd->frame.X = (float*)calloc(atomCount, sizeof(float));
+	dcd->frame.Y = (float*)calloc(atomCount, sizeof(float));
+	dcd->frame.Z = (float*)calloc(atomCount, sizeof(float));
+}
 
+/*
+ * Extend the string to be 80 bytes length (for remarks in header)
+ * Taken from dcdlib.C (NAMD source)
+ */
 void pad(char *s, int len);
-void dcd_read_header(FILE* dcd_file, char *dcd_filename, int* N, int* NFILE, int* NPRIV, int* NSAVC, float* DELTA);
-int dcd_read_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z);
-
-void dcd_close(FILE* dcd_file);
 
 /*
  * Open DCD file to write data into.
  * The FILE* pointer is returned and must be used for further calls
  */
-FILE* dcd_open_write(FILE* dcd_file, char *dcd_filename){
-	dcd_file = fopen(dcd_filename, "w");
-	return dcd_file;
+void dcdOpenWrite(DCD* dcd, const char *dcd_filename){
+	dcd->file = fopen(dcd_filename, "w");
 }
 
-FILE* dcd_open_append(FILE* dcd_file, char *dcd_filename){
-	dcd_file = fopen(dcd_filename, "a");
-	return dcd_file;
+void dcdOpenAppend(DCD* dcd, const char *dcd_filename){
+	dcd->file = fopen(dcd_filename, "a");
 }
 
 /*
@@ -79,30 +95,31 @@ FILE* dcd_open_append(FILE* dcd_file, char *dcd_filename){
  *  69			4				'4'
  *
  */
-void dcd_write_header(FILE* dcd_file, char *dcd_filename, int N, int NFILE, int NPRIV, int NSAVC, double DELTA){
+void dcdWriteHeader( DCD dcd){
+	FILE* dcd_file = dcd.file;
 	int iout;
 	float fout;
-	char cout[4];
+	char cout[5];
 	iout = 84;
 	fwrite(&iout, 4, 1, dcd_file);
 	sprintf(cout, "CORD");
 	fwrite(&cout, 4, 1, dcd_file);
-	iout = NFILE;
+	iout = dcd.header.nfile;
 	fwrite(&iout, 4, 1, dcd_file);
-	iout = NPRIV;
+	iout = dcd.header.npriv;
 	fwrite(&iout, 4, 1, dcd_file);
-	iout = NSAVC;
+	iout = dcd.header.nsavc;
 	fwrite(&iout, 4, 1, dcd_file);
-	iout = NPRIV-NSAVC;
+	iout = dcd.header.npriv-dcd.header.nsavc;
 	fwrite(&iout, 4, 1, dcd_file);
 	iout = 0;
 	for(int i = 0; i < 5; i++){
 		fwrite(&iout, 4, 1, dcd_file);
 	}
-	fout = DELTA;
+	fout = dcd.header.delta;
 	fwrite(&fout, 4, 1, dcd_file);
-	iout = 0;
-	for(int i = 0; i < 9; i++){
+	fwrite(&dcd.hasUC, 4, 1, dcd_file);
+	for(int i = 0; i < 8; i++){
 		fwrite(&iout, 4, 1, dcd_file);
 	}
 	iout = 24;
@@ -114,21 +131,17 @@ void dcd_write_header(FILE* dcd_file, char *dcd_filename, int N, int NFILE, int 
 	iout = 2;
 	fwrite(&iout, 4, 1, dcd_file);
 	char title[81];
-	sprintf(title, "REMARKS FILENAME = %s CREATED BY dcdio.c", dcd_filename);
+	sprintf(title, "%s", dcd.header.remark1);
 	pad(title, 80);
 	fwrite(&title, 80, 1, dcd_file);
-	time_t rawtime;
-	struct tm * timeinfo;
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-	sprintf(title, "REMARKS DATE: %s", asctime(timeinfo));
+	sprintf(title, "%s", dcd.header.remark2);
 	pad(title, 80);
 	fwrite(&title, 80, 1, dcd_file);
 	iout = 164;
 	fwrite(&iout, 4, 1, dcd_file);
 	iout = 4;
 	fwrite(&iout, 4, 1, dcd_file);
-	iout = N;
+	iout = dcd.header.N;
 	fwrite(&iout, 4, 1, dcd_file);
 	iout = 4;
 	fwrite(&iout, 4, 1, dcd_file);
@@ -161,59 +174,74 @@ void dcd_write_header(FILE* dcd_file, char *dcd_filename, int N, int NFILE, int 
  *  4				N*4
  *
  */
-void dcd_write_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z){
+void dcdWriteFrame(DCD dcd){
+	FILE* dcd_file = dcd.file;
 	int iout;
-	iout = N*4;
+	if(dcd.hasUC){
+		iout = 48;
+		fwrite(&iout, 4, 1, dcd_file);
+		fwrite(&dcd.uc.a, 8, 1, dcd_file);
+		fwrite(&dcd.uc.alpha, 8, 1, dcd_file);
+		fwrite(&dcd.uc.b, 8, 1, dcd_file);
+		fwrite(&dcd.uc.beta, 8, 1, dcd_file);
+		fwrite(&dcd.uc.gamma, 8, 1, dcd_file);
+		fwrite(&dcd.uc.c, 8, 1, dcd_file);
+		fwrite(&iout, 4, 1, dcd_file);
+	}
+	iout = dcd.header.N*4;
 	fwrite(&iout, 4, 1, dcd_file);
-	fwrite(X, 4*N, 1, dcd_file);
+	fwrite(dcd.frame.X, 4*dcd.header.N, 1, dcd_file);
 	fwrite(&iout, 4, 1, dcd_file);
 	fwrite(&iout, 4, 1, dcd_file);
-	fwrite(Y, 4*N, 1, dcd_file);
+	fwrite(dcd.frame.Y, 4*dcd.header.N, 1, dcd_file);
 	fwrite(&iout, 4, 1, dcd_file);
 	fwrite(&iout, 4, 1, dcd_file);
-	fwrite(Z, 4*N, 1, dcd_file);
+	fwrite(dcd.frame.Z, 4*dcd.header.N, 1, dcd_file);
 	fwrite(&iout, 4, 1, dcd_file);
 }
 
 /*
  * Close DCD after writing
  */
-void dcd_close(FILE* dcd_file){
-	fclose(dcd_file);
+void dcdClose(DCD dcd){
+	fclose(dcd.file);
 }
 
 
-FILE* dcd_open_read(FILE* dcd_file, char *dcd_filename){
-	dcd_file = fopen(dcd_filename, "r");
-	return dcd_file;
+void dcdOpenRead(DCD* dcd, const char *dcd_filename){
+	dcd->file = fopen(dcd_filename, "r");
 }
 
-void dcd_read_header(FILE* dcd_file, char *dcd_filename, int* N, int* NFILE, int* NPRIV, int* NSAVC, float* DELTA){
+void dcdReadHeader(DCD* dcd){
+	FILE* dcd_file = dcd->file;
 	int iin;
-	char cin[4];
+	char cin[5];
 	fread(&iin, 4, 1, dcd_file);
 	if(iin != 84){
 		printf("Error! Wrong DCD file: DCD supposed to have '84' in first 4 bytes, but it hasn't.\n");
 		exit(0);
 	}
 	fread(&cin, 4, 1, dcd_file);
-	char cord_char[4];
+	char cord_char[5];
 	sprintf(cord_char, "CORD");
-	if(strcmp(cin, cord_char)){
+	if(strncmp(cin, cord_char, 4)){
 		printf("Error! Wrong DCD file: no 'CORD' sequence at the beginning of the file. Found: %s.\n", cin);
 		exit(0);
 	}
     
-	fread(NFILE, 4, 1, dcd_file);
-	fread(NPRIV, 4, 1, dcd_file);
-	fread(NSAVC, 4, 1, dcd_file);
+	fread(&dcd->header.nfile, 4, 1, dcd_file);
+	fread(&dcd->header.npriv, 4, 1, dcd_file);
+	fread(&dcd->header.nsavc, 4, 1, dcd_file);
 	fread(&iin, 4, 1, dcd_file);
 	for(int i = 0; i < 5; i++){
 		fread(&iin, 4, 1, dcd_file);
 	}
-	fread(DELTA, 4, 1, dcd_file);
-	for(int i = 0; i < 9; i++){
+	fread(&dcd->header.delta, 4, 1, dcd_file);
+	fread(&iin, 4, 1, dcd_file);
+	dcd->hasUC = iin;
+	for(int i = 0; i < 8; i++){
 		fread(&iin, 4, 1, dcd_file);
+		//printf("%d: %d\n", i+1, iin);
 	}
 	//24
 	fread(&iin, 4, 1, dcd_file);
@@ -223,36 +251,51 @@ void dcd_read_header(FILE* dcd_file, char *dcd_filename, int* N, int* NFILE, int
 	fread(&iin, 4, 1, dcd_file);
 	//2;
 	fread(&iin, 4, 1, dcd_file);
-	char title[80];
-	fread(&title, 80, 1, dcd_file);
-	printf("Title1: %s\n", title);
-	fread(&title, 80, 1, dcd_file);
-	printf("Title2: %s\n", title);
+	fread(&dcd->header.remark1, 80, 1, dcd_file);
+	//printf("Title1: %s\n", title);
+	fread(&dcd->header.remark2, 80, 1, dcd_file);
+	//printf("Title2: %s\n", title);
 	//164
 	fread(&iin, 4, 1, dcd_file);
 	//4
 	fread(&iin, 4, 1, dcd_file);
 	//N
-	fread(N, 4, 1, dcd_file);
+	fread(&dcd->header.N, 4, 1, dcd_file);
 	//4
 	fread(&iin, 4, 1, dcd_file);
 }
 
-int dcd_read_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z){
+int dcdReadFrame(DCD* dcd){
+	FILE* dcd_file = dcd->file;
 	int iin;
+	double din;
+	fread(&iin, 4, 1, dcd_file);
+	if(dcd->hasUC){
+		fread(&dcd->uc.a, 4, 1, dcd_file);
+		fread(&dcd->uc.alpha, 4, 1, dcd_file);
+		fread(&dcd->uc.b, 4, 1, dcd_file);
+		fread(&dcd->uc.beta, 4, 1, dcd_file);
+		fread(&dcd->uc.gamma, 4, 1, dcd_file);
+		fread(&dcd->uc.c, 4, 1, dcd_file);
+		/*for(int i = 0; i < 6; i++){
+         fread(&din, 8, 1, dcd_file);
+         printf("%d: %f\n", i+1, din);
+         }*/
+		fread(&iin, 4, 1, dcd_file);
+		fread(&iin, 4, 1, dcd_file);
+	}
+	//printf("%d\n", iin);
+	fread(&dcd->frame.X, 4*dcd->header.N, 1, dcd_file);
 	fread(&iin, 4, 1, dcd_file);
 	//printf("%d\n", iin);
-	fread(X, 4*N, 1, dcd_file);
+	fread(&iin, 4, 1, dcd_file);
+	//printf("%d\n", iin);
+	fread(&dcd->frame.Y, 4*dcd->header.N, 1, dcd_file);
 	fread(&iin, 4, 1, dcd_file);
 	//printf("%d\n", iin);
 	fread(&iin, 4, 1, dcd_file);
 	//printf("%d\n", iin);
-	fread(Y, 4*N, 1, dcd_file);
-	fread(&iin, 4, 1, dcd_file);
-	//printf("%d\n", iin);
-	fread(&iin, 4, 1, dcd_file);
-	//printf("%d\n", iin);
-	fread(Z, 4*N, 1, dcd_file);
+	fread(&dcd->frame.Z, 4*dcd->header.N, 1, dcd_file);
 	fread(&iin, 4, 1, dcd_file);
 	//printf("%d\n", iin);
 	if(feof(dcd_file) == 0){
@@ -262,10 +305,6 @@ int dcd_read_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z){
 	}
 }
 
-/*
- * Extend the string to be 80 bytes length (for remarks in header)
- * Taken from dcdlib.C (NAMD source)
- */
 void pad(char *s, int len){
 	int curlen;
 	int i;
@@ -279,4 +318,3 @@ void pad(char *s, int len){
 	}
 	s[i] = '\0';
 }
-

@@ -110,6 +110,11 @@ Vect3& Vect3::operator /= (double div)
     return *this;
 }
 
+bool Vect3::operator == (const Vect3 other)
+{
+    return (x == other.x) && (y == other.y) && (z == other.z);
+}
+
 double Vect3::len() const
 {
     return sqrt(x * x + y * y + z * z);

@@ -31,6 +31,8 @@ public:
     Vect3& operator *= (double mul);
     Vect3& operator /= (double div);
     
+    bool operator == (const Vect3 other);
+    
     double len() const;
     
     double scalarProduct(const Vect3& other) const;

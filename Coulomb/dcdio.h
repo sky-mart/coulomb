@@ -1,6 +1,3 @@
-#ifndef Coulomb_dcdio_h
-#define Coulomb_dcdio_h
-
 /*
  * dcdio.h
  *
@@ -8,19 +5,45 @@
  *      Author: zhmurov
  */
 
-#include <cstdlib>
-#include <cstdio>
+#pragma once
 
-extern FILE* dcd_open_write(FILE* dcd_file, char *dcd_filename);
-extern FILE* dcd_open_append(FILE* dcd_file, char *dcd_filename);
-extern FILE* dcd_open_read(FILE* dcd_file, char *dcd_filename);
+#include <stdio.h>
 
-extern void dcd_write_header(FILE* dcd_file, char *dcd_filename, int N, int NFILE, int NPRIV, int NSAVC, double DELTA);
-extern void dcd_write_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z);
-extern void dcd_read_header(FILE* dcd_file, char *dcd_filename, int* N, int* NFILE, int* NPRIV, int* NSAVC, float* DELTA);
-extern int dcd_read_frame(FILE* dcd_file, int N, float *X, float *Y, float *Z);
+typedef struct {
+	int nfile, npriv, nsavc, nstep, N;
+	float delta;
+	char remark1[80];
+	char remark2[80];
+} DCDHeader;
 
-extern void dcd_close(FILE* dcd_file);
+typedef struct {
+	float* X;
+	float* Y;
+	float* Z;
+} DCDFrame;
 
+typedef struct {
+	double a, b, c;
+	double alpha, beta, gamma;
+} DCDUnitCell;
 
-#endif
+typedef struct {
+	FILE* file;
+	int hasUC;
+	DCDUnitCell uc;
+	DCDHeader header;
+	DCDFrame frame;
+} DCD;
+
+void createDCD(DCD* dcd, int atomCount, int frameCount, int firstFrame, float timestep, int dcdFreq, int hazUC, int UCX, int UCY, int UCZ);
+
+void dcdOpenWrite(DCD* dcd, const char *dcd_filename);
+void dcdOpenAppend(DCD* dcd, const char *dcd_filename);
+void dcdOpenRead(DCD* dcd, const char *dcd_filename);
+
+void dcdWriteHeader(DCD dcd);
+void dcdWriteFrame(DCD dcd);
+void dcdReadHeader(DCD* dcd);
+int dcdReadFrame(DCD* dcd);
+
+void dcdClose(DCD dcd);
