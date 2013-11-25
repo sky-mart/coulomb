@@ -156,3 +156,13 @@ double Vect3::projectionCoeff(const Vect3& other) const
     double scProd = scalarProduct(other);
     return scProd / pow(other.len(), 2);
 }
+
+bool Vect3::hasNaN() const
+{
+    return (x != x) || (y != y) || (z != z);
+}
+
+bool Vect3::allZeros() const
+{
+    return x == 0 && y == 0 && z == 0;
+}

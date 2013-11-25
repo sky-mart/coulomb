@@ -42,6 +42,10 @@ class Cell
 public:
     Cell(const Vect3& center, const double side);
     
+    ~Cell();
+    
+    static string statisticsFile;
+    
     static double G(const double R, const Vect3& s);
     
     static const double criticalSize;
@@ -74,6 +78,10 @@ public:
     void printHierarchy();
     
     list<Particle*>* getParticles();
+    
+    list<Particle*>* allParticles();
+    
+    void addStatistics(const Particle& p, const Vect3& honestForce, const Vect3& yavorskyForce);
 };
 
 #endif /* defined(__Coulomb__Cell__) */

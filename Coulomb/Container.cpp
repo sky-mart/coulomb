@@ -241,12 +241,20 @@ void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode
     this->outputMode = outputMode;
     this->timeStep = timeStep;
     
-    if (calc == yavorsky)
+    if (calc == yavorsky || calc == statistics)
     {
         hierarchy = vector<vector<Cell*>>(N);
         interactingCells = vector<vector<Cell*>>(N);
         generateCells();
         defineParticlesSets();
+        
+        if (calc == statistics)
+        {
+            Cell::statisticsFile = "/users/vlad/statistics.dat";
+            ofstream stat;
+            stat.open(Cell::statisticsFile, ofstream::out);
+            stat.close();
+        }
     }
     
     if (outputMode == xyzFile)
@@ -266,14 +274,19 @@ void Container::model(double timeStep, double time, CoulombCalc calc, OutputMode
     for (double t = 0; t <= time; t += timeStep)
     {
         oneStep();
-        cout << "Step #" << (int)t+1 << " finished\n";
+        //cout << "Step #" << (int)t+1 << " finished\n";
         if (shouldOutput(t))
         {
             if (outputMode == dcdFile)
                 writeDCDFrame();
-            else
+            else if (outputMode == xyzFile)
                 printCurrentState();
         }
+    }
+    
+    if (calc == yavorsky || calc == statistics)
+    {
+        delete cell;
     }
 }
 
@@ -292,14 +305,18 @@ void Container::oneStep()
                 Vect3 forceFromCell = interactingCells[i][j]->coulombForce(particles[i]);
                 forces[i] += forceFromCell;
             }
+            
             Cell* lastCell = hierarchy[i][hierarchy[i].size() - 1];
             list<Particle*>* interactingParticles = lastCell->getParticles();
             
-            for (list<Particle*>::iterator j = interactingParticles->begin();
-                 j != interactingParticles->end(); j++)
-                if (!(**j == particles[i]))
-                    forces[i] += particles[i].coulombForce(**j);
-            
+            Vect3 forceFromParticles;
+            for (list<Particle*>::iterator j = interactingParticles->begin(); j != interactingParticles->end(); j++)
+            {
+                Particle p = **j;
+                if (!(p == particles[i]))
+                    forceFromParticles += particles[i].coulombForce(p);
+            }
+            forces[i] += forceFromParticles;
         }
         else if (calc == N2)
         {
@@ -309,6 +326,33 @@ void Container::oneStep()
                 forces[i] += force;
                 forces[j] -= force;
             }
+        }
+        else if (calc == statistics)
+        {
+            for (int j = 0; j < interactingCells[i].size(); j++)
+            {
+                Cell* interactingCell = interactingCells[i][j];
+                
+                list<Particle*>* cellParticles = interactingCell->allParticles();
+                
+                Vect3 forceFromCell = interactingCells[i][j]->coulombForce(particles[i]);
+                
+                Vect3 forcesSum;
+                if (cellParticles)
+                    for (list<Particle*>::iterator k = cellParticles->begin(); k != cellParticles->end(); k++)
+                        forcesSum += particles[i].coulombForce(**k);
+                
+                interactingCells[i][j]->addStatistics(particles[i], forcesSum, forceFromCell);
+                
+                forces[i] += forcesSum;
+            }
+            Cell* lastCell = hierarchy[i][hierarchy[i].size() - 1];
+            list<Particle*>* interactingParticles = lastCell->getParticles();
+            
+            for (list<Particle*>::iterator j = interactingParticles->begin();
+                 j != interactingParticles->end(); j++)
+                if (!(**j == particles[i]))
+                    forces[i] += particles[i].coulombForce(**j);
         }
         
         //boundary condition
@@ -336,7 +380,7 @@ void Container::oneStep()
             reflect(intersectPair->first, intersectPair->second, newR, newV);
         }
         */
-        if (calc == yavorsky)
+        if (calc != N2)
         {
             for (int j = 0; j < hierarchy[i].size(); j++)
                 hierarchy[i][j]->remove(&particles[i]);

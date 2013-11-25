@@ -26,12 +26,12 @@ public:
     // Enumeration of output modes.
     // At the moment only writing to .xyz files works
     // and oportunity to write to .dcd files also exists but doesn't work
-    enum OutputMode {xyzFile, dcdFile};
+    enum OutputMode {xyzFile, dcdFile, noOutput};
     
     
     // Enumeration of coulomb force calculation methods
     // At the moment only the simplest N^2 method works
-    enum CoulombCalc {N2, yavorsky};
+    enum CoulombCalc {N2, yavorsky, statistics};
     
     
     // Constructor from file .xyz @xyzFile
@@ -40,7 +40,7 @@ public:
     Container(string xyzFile);
     
     Container(string coordinateFile, string velocityFile);
-    
+        
     
     // This method generates uniform grid which has
     // particles in every node. All particles are situated
@@ -81,6 +81,7 @@ private:
     
     // Basic method modelling one step
     void oneStep();
+    void statisticsStep();
     
     // Methods specific for yavorsky calculactions
     void generateCells();
@@ -141,9 +142,9 @@ private:
     OutputMode outputMode;
     
     // DCD variables
-    DCD dcd;
+    /*DCD dcd;
     char* dcdFileName;
-    int dcdStep;
+    int dcdStep;*/
     
     // .xyz file
     ofstream movie;

@@ -42,6 +42,10 @@ public:
     Vect3 projection(const Vect3& other) const;
     double projectionCoeff(const Vect3& other) const;
     
+    //debug
+    bool hasNaN() const;
+    bool allZeros() const;
+    
     double x;
     double y;
     double z;
