@@ -1,4 +1,4 @@
 coulomb
 =======
 
-Моделирование закона Кулона
+Coulomb's law modeling
